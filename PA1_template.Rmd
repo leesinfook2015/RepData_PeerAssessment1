@@ -7,19 +7,125 @@ output:
 
 
 ## Loading and preprocessing the data
+```{r}
 
+activity_data=read.csv("activity.csv", header = T)
+head(activity_data)
+str(activity_data)
+dim(activity_data)[1]
+
+# remove NA in data
+data1 <- activity_data[ with (activity_data, { !(is.na(steps)) } ), ]
+head(data1)
+str(data1)
+table(data1$interval)
+```
 
 
 ## What is mean total number of steps taken per day?
+```{r}
+#Calculate the total number of steps taken per day
+library(dplyr)
+
+by_date<- group_by(data1, date)
+total_number<- summarise(by_date,total_step = sum(steps))
+
+
+## histogram of of total step by date
+hist(total_number$total_step, main="Histogram Total Steps per Day", xlab="# Steps", col="red") # plot a histogram  
+
+
+##Calculate and report the mean and median of the total number of steps taken per day
+summary(total_number$total_step)
+```
 
 
 
 ## What is the average daily activity pattern?
+```{r}
+# preprocessing data for plot
+steps_by_interval <- aggregate(steps ~ interval, data1, mean)
+
+# create a time series plot 
+plot(steps_by_interval$interval, steps_by_interval$steps, type='l', 
+     main="Average number of steps over all days", xlab="Interval", 
+     ylab="Average number of steps")
+
+###finding the maximum interval
+#which.max indicate for us the position. 
+steps_by_interval[which.max(steps_by_interval$steps),]
+```
 
 
 
 ## Imputing missing values
+```{r}
+
+#Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+table(is.na(activity_data$steps))
+
+
+#imputing all those NA step row in the orignal data with the mean steps from each 5 mins intevral timing. 
+new_data=activity_data
+
+for (i in 1: dim(new_data)[1]){
+  if(is.na(new_data$steps[i])){
+    interval_vaue=new_data$interval[i]
+    new_data$newsteps[i]=steps_by_interval$steps[steps_by_interval$interval==interval_vaue]
+  } else new_data$newsteps[i]=new_data$steps[i]
+}
+
+#checking the impute data
+head(new_data[is.na(new_data$steps),])
+
+#histogram for the new_data
+by_date_new<- group_by(new_data, date)
+total_numbe_newr<- summarise(by_date_new,total_step_new = sum(newsteps))
+
+
+## histogram of of total step by date
+hist(total_numbe_newr$total_step_new, main="Histogram Total Steps per Day", xlab="# Steps", col="red") # plot a histogram  
+
+##Calculate and report the new_mean and new_ median of the total number of steps taken per day
+summary(total_numbe_newr$total_step_new)[3]
+
+#comparing the 2 mean and median
+
+mean1_vs_mean2=c(summary(total_number$total_step)[4],summary(total_numbe_newr$total_step_new)[4])
+median1_vs_median2=c(summary(total_number$total_step)[3],summary(total_numbe_newr$total_step_new)[3])
+
+```
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+#creating a new factor for the new dataset.
+new_data$new_weekday=weekdays(new_data$date)
+head(new_data)
+
+#as weekdays function only allow monday to sunday, we need to categeroise them into 2
+new_data$new_type=ifelse(((new_data$new_weekday=="Sunday")|(new_data$new_weekday=="Saturday")),"Weekends","weekdays")
+head(new_data)
+
+#exporting the data
+write.table(new_data, "~/GitHub/RepData_PeerAssessment1/mydata.txt", sep="\t")
+```{r}
+head(new_data)
+new_data1=read.table("mydata.txt", , sep="\t")
+
+steps_by_interval_1=aggregate(newsteps~interval+new_type,new_data1,mean)
+library(ggplot2)
+# creat a plot
+qplot(interval, 
+      newsteps, 
+      data = steps_by_interval_1, 
+      type = 'l', 
+      geom=c("line"),
+      xlab = "Interval", 
+      ylab = "Number of steps", 
+      main = "") +
+  facet_wrap(~ new_type, ncol = 1)
+
+
+```
